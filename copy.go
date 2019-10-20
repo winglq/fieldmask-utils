@@ -2,6 +2,7 @@ package fieldmask_utils
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -79,6 +80,11 @@ func structToStruct(filter FieldFilter, src, dst *reflect.Value) error {
 		}
 
 		for i := 0; i < src.NumField(); i++ {
+			srcTagValue := src.Type().Field(i).Tag.Get("field_mask")
+			if strings.Contains(srcTagValue, "output_only") {
+				// Skip field with ouptut_only
+				continue
+			}
 			fieldName := src.Type().Field(i).Name
 
 			subFilter, ok := filter.Filter(fieldName)
@@ -87,6 +93,15 @@ func structToStruct(filter FieldFilter, src, dst *reflect.Value) error {
 				continue
 			}
 
+			dstTagField, ok := dst.Type().FieldByName(fieldName)
+			if !ok {
+				continue
+			}
+			dstTagValue := dstTagField.Tag.Get("field_mask")
+			if strings.Contains(dstTagValue, "output_only") {
+				// Skip field with ouptut_only
+				continue
+			}
 			dstField := dst.FieldByName(fieldName)
 			if !dstField.CanSet() {
 				return errors.Errorf("Can't set a value on a destination field %s", fieldName)
